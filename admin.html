@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MilkMart Admin</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  margin: 0;
+}
+header {
+  background: #333;
+  color: #fff;
+  padding: 15px;
+  text-align: center;
+}
+header a {
+  color: #fff;
+  text-decoration: none;
+  background: #28a745;
+  padding: 6px 12px;
+  border-radius: 5px;
+}
+main {
+  padding: 20px;
+  display: none;
+}
+h2, h3 {
+  text-align: center;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+th, td {
+  border: 1px solid #ccc;
+  padding: 10px;
+}
+th {
+  background: #28a745;
+  color: white;
+}
+input {
+  width: 100%;
+  padding: 6px;
+}
+button {
+  padding: 7px 12px;
+  border: none;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+  border-radius: 5px;
+}
+button:hover {
+  background: #218838;
+}
+.deleteBtn {
+  background: #dc3545;
+}
+.deleteBtn:hover {
+  background: #b52a37;
+}
+img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+.form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.form-row input, .form-row button {
+  flex: 1 1 200px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>MilkMart Admin Panel</h1>
+  <a href="orders.html">View Orders</a>
+</header>
+
+<main id="adminPanel">
+
+<h2>Manage Products</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Image</th>
+      <th>Name</th>
+      <th>Price</th>
+      <th>Unit</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="productsTable"></tbody>
+</table>
+
+<h3>Add New Product</h3>
+
+<div class="form-row">
+  <input type="text" id="newName" placeholder="Product Name">
+  <input type="number" id="newPrice" placeholder="Price">
+  <input type="text" id="newUnit" placeholder="Unit (500ml, 1kg)">
+  <input type="file" id="newImage" accept="image/*">
+  <button id="addBtn">Add Product</button>
+</div>
+
+<button id="saveBtn" style="display:block;margin:20px auto;">
+  Save All Changes
+</button>
+
+</main>
+
+<script>
+/* ================= PASSWORD ================= */
+const ADMIN_PASSWORD = "admin123"; // 🔑 change password here
+const pass = prompt("Enter Admin Password");
+
+if (pass !== ADMIN_PASSWORD) {
+  alert("❌ Wrong password");
+  document.body.innerHTML = "<h2 style='text-align:center;margin-top:50px;'>Access Denied</h2>";
+  throw new Error("Unauthorized");
+}
+
+document.getElementById("adminPanel").style.display = "block";
+
+/* ================= LOGIC ================= */
+let products = [];
+const tableBody = document.getElementById("productsTable");
+
+const newName = document.getElementById("newName");
+const newPrice = document.getElementById("newPrice");
+const newUnit = document.getElementById("newUnit");
+const newImage = document.getElementById("newImage");
+const addBtn = document.getElementById("addBtn");
+
+/* Load Products */
+async function loadProducts() {
+  const res = await fetch("/api/products");
+  products = await res.json();
+  renderTable();
+}
+
+/* Render Table */
+function renderTable() {
+  tableBody.innerHTML = "";
+  products.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${p.image ? `<img src="${p.image}">` : "No Image"}</td>
+      <td><input value="${p.name}" onchange="products[${i}].name=this.value"></td>
+      <td><input type="number" value="${p.price}" onchange="products[${i}].price=parseInt(this.value)"></td>
+      <td><input value="${p.unit}" onchange="products[${i}].unit=this.value"></td>
+      <td><button class="deleteBtn" onclick="deleteProduct(${i})">Delete</button></td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+/* Delete Product */
+window.deleteProduct = (index) => {
+  if (confirm("Delete this product?")) {
+    products.splice(index, 1);
+    renderTable();
+  }
+};
+
+/* Add Product */
+addBtn.addEventListener("click", async () => {
+  if (!newName.value || !newPrice.value || !newUnit.value || !newImage.files[0]) {
+    alert("❌ Fill all fields");
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append("name", newName.value);
+  fd.append("price", newPrice.value);
+  fd.append("unit", newUnit.value);
+  fd.append("image", newImage.files[0]);
+
+  const res = await fetch("/api/add-product", {
+    method: "POST",
+    body: fd
+  });
+
+  const data = await res.json();
+  alert(data.message);
+
+  newName.value = "";
+  newPrice.value = "";
+  newUnit.value = "";
+  newImage.value = "";
+
+  loadProducts();
+});
+
+/* Save All Changes */
+document.getElementById("saveBtn").onclick = async () => {
+  await fetch("/api/products", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ products })
+  });
+  alert("✅ All changes saved");
+};
+
+loadProducts();
+</script>
+
+</body>
+</html>

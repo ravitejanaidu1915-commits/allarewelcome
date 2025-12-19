@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MilkMart – Place Order</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    color: #2c3e50;
+  }
+  .box {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  label {
+    display: block;
+    margin-top: 10px;
+    font-weight: bold;
+  }
+  input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+  }
+  .product {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  button {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 12px;
+    width: 100%;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #219150;
+  }
+  .total {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 10px;
+    color: #e67e22;
+  }
+</style>
+</head>
+<body>
+
+<h1>🥛 MilkMart – Place Order</h1>
+
+<div class="box">
+  <label>Name</label>
+  <input type="text" id="name" placeholder="Enter your name">
+
+  <label>Phone</label>
+  <input type="text" id="phone" placeholder="Enter phone number">
+</div>
+
+<div class="box">
+  <h3>Products</h3>
+  <div id="products"></div>
+  <div class="total">Total: ₹<span id="total">0</span></div>
+</div>
+
+<button onclick="placeOrder()">📦 Place Order</button>
+
+<script>
+let products = [];
+let total = 0;
+let latitude = "";
+let longitude = "";
+
+// Get location
+navigator.geolocation.getCurrentPosition(
+  pos => {
+    latitude = pos.coords.latitude;
+    longitude = pos.coords.longitude;
+  },
+  () => alert("Location permission denied")
+);
+
+// Load products
+async function loadProducts() {
+  const res = await fetch("/api/products");
+  products = await res.json();
+
+  const div = document.getElementById("products");
+  div.innerHTML = "";
+
+  products.forEach((p, i) => {
+    div.innerHTML += `
+      <div class="product">
+        <span>${p.name} (₹${p.price}/${p.unit})</span>
+        <input type="number" min="0" value="0" onchange="updateTotal(${i}, this.value)">
+      </div>
+    `;
+  });
+}
+
+function updateTotal(index, qty) {
+  products[index].qty = Number(qty);
+  total = 0;
+  products.forEach(p => {
+    if (p.qty) total += p.price * p.qty;
+  });
+  document.getElementById("total").innerText = total;
+}
+
+async function placeOrder() {
+  const name = document.getElementById("name").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+
+  const items = products
+    .filter(p => p.qty > 0)
+    .map(p => ({ name: p.name, qty: p.qty }));
+
+  if (!name || !phone || items.length === 0) {
+    alert("Please fill details and select products");
+    return;
+  }
+
+  const res = await fetch("/api/order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      phone,
+      items,
+      latitude,
+      longitude
+    })
+  });
+
+  const data = await res.json();
+  alert(data.message);
+  location.reload();
+}
+
+loadProducts();
+</script>
+
+</body>
+</html>
